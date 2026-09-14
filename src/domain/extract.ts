@@ -192,6 +192,22 @@ export async function extractTextFromPdf(
   return text;
 }
 
+export async function extractTextFromDocx(content: Uint8Array): Promise<string> {
+  const mammoth = await import("mammoth");
+  const copy = content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength);
+  try {
+    const result = await mammoth.extractRawText({ arrayBuffer: copy as ArrayBuffer });
+    const text = cleanText(result.value || "");
+    if (!text) {
+      throw new TextExtractionError("O documento Word está vazio.");
+    }
+    return text;
+  } catch (error) {
+    if (error instanceof TextExtractionError) throw error;
+    throw new TextExtractionError("Não foi possível ler o arquivo DOCX.");
+  }
+}
+
 export async function loadDocument(
   file: BinarySource,
   sourceDocument: string,
@@ -217,11 +233,13 @@ export async function loadDocument(
     text = await extractTextFromPdf(content);
   } else if (suffix === ".xlsx" || suffix === ".xls" || suffix === ".csv") {
     text = await extractTextFromSpreadsheet(content, suffix);
+  } else if (suffix === ".docx") {
+    text = await extractTextFromDocx(content);
   } else if (suffix === ".txt" || suffix === ".md" || suffix === "") {
     text = extractTextFromTxt(content);
   } else {
     throw new TextExtractionError(
-      "Tipo de arquivo não suportado no MVP. Use PDF com texto selecionável, XLSX, CSV ou TXT.",
+      "Tipo de arquivo não suportado no MVP. Use PDF com texto selecionável, DOCX, XLSX, CSV ou TXT.",
     );
   }
 
@@ -237,14 +255,18 @@ export function assertSafeUpload(filename: string, bytes: Uint8Array): void {
   const suffix = extensionOf(filename);
   if (suffix && !(ALLOWED_UPLOAD_EXTENSIONS as readonly string[]).includes(suffix)) {
     throw new TextExtractionError(
-      "Tipo de arquivo não suportado no MVP. Use PDF com texto selecionável, XLSX, CSV ou TXT.",
+      "Tipo de arquivo não suportado no MVP. Use PDF com texto selecionável, DOCX, XLSX, CSV ou TXT.",
     );
   }
   if (suffix === ".pdf" && !hasMagic(bytes, "%PDF")) {
     throw new TextExtractionError("O arquivo PDF está corrompido ou não é um PDF válido.");
   }
-  if (suffix === ".xlsx" && !hasBytes(bytes, [0x50, 0x4b])) {
-    throw new TextExtractionError("O arquivo XLSX está corrompido ou não é uma planilha válida.");
+  if ((suffix === ".xlsx" || suffix === ".docx") && !hasBytes(bytes, [0x50, 0x4b])) {
+    throw new TextExtractionError(
+      suffix === ".docx"
+        ? "O arquivo DOCX está corrompido ou não é um documento Word válido."
+        : "O arquivo XLSX está corrompido ou não é uma planilha válida.",
+    );
   }
   if (suffix === ".xls") {
     throw new TextExtractionError(

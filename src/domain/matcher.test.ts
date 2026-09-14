@@ -60,3 +60,25 @@ test("no match sample", () => {
   const match = matchSubjects([previous], [current], 1)[0];
   assert.equal(match.classification, "no_match");
 });
+
+test("best pairs mark unique assignment and shared destination", () => {
+  const previous = [
+    makeSubject("Anatomia Humana", 80, "sistemas organicos ossos musculos"),
+    makeSubject("Anatomia Topografica", 80, "sistemas organicos ossos musculos disseccao"),
+    makeSubject("Comunicacao Empresarial", 40, "redacao corporativa"),
+  ];
+  const current = [
+    makeSubject("Anatomia Humana", 80, "sistemas organicos ossos musculos"),
+    makeSubject("Calculo I", 80, "limites derivadas integrais"),
+  ];
+  const matches = matchSubjects(previous, current, 3);
+  const best = matches.filter((item) => item.rank === 1);
+  assert.equal(best.length, 3);
+  const anatomy = best.filter((item) => item.currentSubject.name === "Anatomia Humana");
+  assert.ok(anatomy.length >= 2);
+  assert.ok(anatomy.every((item) => item.destinationConflict));
+  const unique = matches.filter((item) => item.assignedUnique);
+  const uniqueCurrents = new Set(unique.map((item) => item.currentSubject.name));
+  assert.equal(uniqueCurrents.size, unique.length);
+  assert.ok(unique.some((item) => item.currentSubject.name === "Anatomia Humana"));
+});

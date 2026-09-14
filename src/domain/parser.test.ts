@@ -94,3 +94,14 @@ test("blank review rows are ignored and names are normalized", () => {
   assert.equal(edited[0].name, "Estatística Descritiva");
   assert.equal(edited[0].normalizedName, "estatistica descritiva");
 });
+
+test("csv hours accept a bare number without h suffix", () => {
+  const text = `disciplina,carga horaria,ementa
+Calculo I,80,limites e derivadas
+Algebra Linear,60h,matrizes e vetores
+`;
+  const subjects = parseSubjects(text, "matriz.csv");
+  assert.equal(subjects.length, 2);
+  assert.equal(subjects[0].workloadHours, 80);
+  assert.equal(subjects[1].workloadHours, 60);
+});

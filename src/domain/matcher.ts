@@ -5,6 +5,7 @@ import {
   STRONG_EQUIVALENCY,
 } from "./config.ts";
 import { subjectSimilarityMatrix } from "./embeddings.ts";
+import { conciseJustification } from "./evaluator.ts";
 import { type Subject, type SubjectMatch } from "./models.ts";
 import { normalizeText, round4 } from "./normalizer.ts";
 import { sequenceMatcherRatio } from "./sequence.ts";
@@ -164,5 +165,59 @@ export function matchSubjects(
     candidates.sort((a, b) => b.finalScore - a.finalScore);
     matches.push(...candidates.slice(0, topN));
   }
-  return matches;
+  return annotateMatches(matches);
+}
+
+export function subjectIdentity(subject: Subject): string {
+  return `${subject.name.trim().toLowerCase()}|${subject.workloadHours ?? ""}`;
+}
+
+export function annotateMatches(matches: SubjectMatch[]): SubjectMatch[] {
+  const byPrevious = new Map<string, SubjectMatch[]>();
+  for (const match of matches) {
+    const key = subjectIdentity(match.previousSubject);
+    const group = byPrevious.get(key) ?? [];
+    group.push(match);
+    byPrevious.set(key, group);
+  }
+
+  const ranked: SubjectMatch[] = [];
+  for (const group of byPrevious.values()) {
+    group.sort((a, b) => b.finalScore - a.finalScore);
+    group.forEach((match, index) => {
+      ranked.push({
+        ...match,
+        rank: index + 1,
+        destinationConflict: false,
+        assignedUnique: false,
+      });
+    });
+  }
+
+  const best = ranked.filter((match) => match.rank === 1);
+  const currentCounts = new Map<string, number>();
+  for (const match of best) {
+    const key = subjectIdentity(match.currentSubject);
+    currentCounts.set(key, (currentCounts.get(key) ?? 0) + 1);
+  }
+
+  const claimedCurrent = new Set<string>();
+  const uniqueKeys = new Set<string>();
+  for (const match of [...best].sort((a, b) => b.finalScore - a.finalScore)) {
+    const currentKey = subjectIdentity(match.currentSubject);
+    if (claimedCurrent.has(currentKey)) continue;
+    claimedCurrent.add(currentKey);
+    uniqueKeys.add(`${subjectIdentity(match.previousSubject)}::${currentKey}`);
+  }
+
+  return ranked.map((match) => {
+    const previousKey = subjectIdentity(match.previousSubject);
+    const currentKey = subjectIdentity(match.currentSubject);
+    return {
+      ...match,
+      destinationConflict: match.rank === 1 && (currentCounts.get(currentKey) ?? 0) > 1,
+      assignedUnique: uniqueKeys.has(`${previousKey}::${currentKey}`),
+      justification: match.justification || conciseJustification(match),
+    };
+  });
 }

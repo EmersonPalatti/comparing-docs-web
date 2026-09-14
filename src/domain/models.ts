@@ -24,6 +24,9 @@ export type SubjectMatch = {
   classification: string;
   requiresManualReview: boolean;
   justification: string | null;
+  rank?: number;
+  destinationConflict?: boolean;
+  assignedUnique?: boolean;
 };
 
 export function createSubject(partial: {

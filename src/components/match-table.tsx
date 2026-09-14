@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 
 type MatchTableProps = {
   rows: MatchRow[];
+  activeId: string | null;
   onSelect: (id: string, selected: boolean) => void;
   onNote: (id: string, note: string) => void;
   onSelectAll: (selected: boolean) => void;
+  onOpen: (id: string) => void;
 };
 
 function priorityTone(priority: string) {
@@ -23,7 +25,7 @@ function classTone(classification: string) {
   return "low" as const;
 }
 
-export function MatchTable({ rows, onSelect, onNote, onSelectAll }: MatchTableProps) {
+export function MatchTable({ rows, activeId, onSelect, onNote, onSelectAll, onOpen }: MatchTableProps) {
   const allSelected = rows.length > 0 && rows.every((row) => row.selected);
 
   return (
@@ -51,8 +53,16 @@ export function MatchTable({ rows, onSelect, onNote, onSelectAll }: MatchTablePr
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className={cn("border-b border-border last:border-0", row.selected && "bg-accent/5")}>
-              <td className="px-3 py-3 align-top">
+            <tr
+              key={row.id}
+              className={cn(
+                "cursor-pointer border-b border-border last:border-0",
+                row.selected && "bg-accent/5",
+                activeId === row.id && "bg-accent/10",
+              )}
+              onClick={() => onOpen(row.id)}
+            >
+              <td className="px-3 py-3 align-top" onClick={(event) => event.stopPropagation()}>
                 <input
                   type="checkbox"
                   className="size-4 accent-accent"
@@ -65,6 +75,7 @@ export function MatchTable({ rows, onSelect, onNote, onSelectAll }: MatchTablePr
                 <div className="font-medium text-fg">{row.previousName}</div>
                 <div className="tabular-nums text-xs text-muted">
                   {row.previousHours == null ? "CH n/d" : `${row.previousHours}h`}
+                  {row.rank > 1 ? ` · ${row.rank}º` : ""}
                 </div>
               </td>
               <td className="px-3 py-3 align-top">
@@ -89,13 +100,13 @@ export function MatchTable({ rows, onSelect, onNote, onSelectAll }: MatchTablePr
               <td className="px-3 py-3 align-top">
                 <div className="flex flex-wrap gap-1">
                   {row.alertList.slice(0, 3).map((alert) => (
-                    <Badge key={alert} tone="default">
+                    <Badge key={alert} tone={alert === "Destino compartilhado" ? "high" : "default"}>
                       {alert}
                     </Badge>
                   ))}
                 </div>
               </td>
-              <td className="px-3 py-3 align-top">
+              <td className="px-3 py-3 align-top" onClick={(event) => event.stopPropagation()}>
                 <Input
                   value={row.reviewerNote}
                   placeholder="Justificativa humana"

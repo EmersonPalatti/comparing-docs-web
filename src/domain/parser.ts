@@ -36,7 +36,10 @@ type ParseStrategy = (text: string, sourceDocument: string) => Subject[];
 
 export function extractWorkload(text: string): number | null {
   const match = WORKLOAD_RE.exec(text);
-  return match?.groups?.hours ? Number.parseInt(match.groups.hours, 10) : null;
+  if (match?.groups?.hours) return Number.parseInt(match.groups.hours, 10);
+  const trimmed = text.trim();
+  if (/^\d{1,4}$/.test(trimmed)) return Number.parseInt(trimmed, 10);
+  return null;
 }
 
 export function extractCredits(text: string): number | null {

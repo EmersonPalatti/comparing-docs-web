@@ -121,6 +121,11 @@ test("assertSafeUpload rejects unsupported extensions and magic mismatch", () =>
   );
   assert.doesNotThrow(() => assertSafeUpload("ok.pdf", new TextEncoder().encode("%PDF-1.7")));
   assert.doesNotThrow(() => assertSafeUpload("ok.xlsx", new Uint8Array([0x50, 0x4b, 0x03, 0x04])));
+  assert.doesNotThrow(() => assertSafeUpload("ementario.docx", new Uint8Array([0x50, 0x4b, 0x03, 0x04])));
+  assert.throws(
+    () => assertSafeUpload("falso.docx", new TextEncoder().encode("not-a-zip")),
+    (error: unknown) => error instanceof TextExtractionError && /DOCX/.test(error.message),
+  );
 });
 
 test("loadDocument rejects empty and unsupported files", async () => {

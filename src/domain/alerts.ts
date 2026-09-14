@@ -31,12 +31,17 @@ export function matchAlerts(match: SubjectMatch): string[] {
     alerts.push("Revisar escopo");
   }
 
+  if (match.destinationConflict) {
+    alerts.push("Destino compartilhado");
+  }
+
   return alerts.length ? alerts : ["Sem alerta específico"];
 }
 
 export function matchPriority(match: SubjectMatch): string {
   const alerts = new Set(matchAlerts(match));
   if (alerts.has("Nome muito similar e carga menor")) return "Alta";
+  if (alerts.has("Destino compartilhado")) return "Alta";
   if (match.finalScore >= 0.7 && match.requiresManualReview) return "Alta";
   if (match.finalScore >= 0.5) return "Média";
   return "Baixa";

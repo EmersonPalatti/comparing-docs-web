@@ -7,8 +7,10 @@ export type MatchRow = {
   selected: boolean;
   previousName: string;
   previousHours: number | null;
+  previousSyllabus: string;
   currentName: string;
   currentHours: number | null;
+  currentSyllabus: string;
   priority: string;
   alerts: string;
   alertList: string[];
@@ -29,18 +31,25 @@ export type MatchRow = {
   manualReviewLabel: string;
   reviewerNote: string;
   justification: string;
+  rank: number;
+  isBest: boolean;
+  destinationConflict: boolean;
+  assignedUnique: boolean;
 };
 
 export function matchesToRows(matches: SubjectMatch[]): MatchRow[] {
   return matches.map((match, index) => {
     const alerts = matchAlerts(match);
+    const rank = match.rank ?? 1;
     return {
       id: `${index}-${match.previousSubject.name}-${match.currentSubject.name}`,
       selected: false,
       previousName: sanitizeSpreadsheetCell(match.previousSubject.name),
       previousHours: match.previousSubject.workloadHours,
+      previousSyllabus: match.previousSubject.syllabus ?? "",
       currentName: sanitizeSpreadsheetCell(match.currentSubject.name),
       currentHours: match.currentSubject.workloadHours,
+      currentSyllabus: match.currentSubject.syllabus ?? "",
       priority: matchPriority(match),
       alerts: alerts.join(" | "),
       alertList: alerts,
@@ -61,6 +70,10 @@ export function matchesToRows(matches: SubjectMatch[]): MatchRow[] {
       manualReviewLabel: match.requiresManualReview ? "Sim" : "Não",
       reviewerNote: "",
       justification: match.justification || conciseJustification(match),
+      rank,
+      isBest: rank === 1,
+      destinationConflict: Boolean(match.destinationConflict),
+      assignedUnique: Boolean(match.assignedUnique),
     };
   });
 }

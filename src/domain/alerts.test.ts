@@ -83,6 +83,25 @@ test("alerts detect missing workload and low score", () => {
   assert.equal(matchPriority(item), "Baixa");
 });
 
+test("shared destination raises a high-priority alert", () => {
+  const item = match({
+    previousSubject: createSubject({
+      name: "Anatomia Topografica",
+      sourceDocument: "previous.pdf",
+      workloadHours: 80,
+    }),
+    currentSubject: createSubject({
+      name: "Anatomia Humana",
+      sourceDocument: "current.pdf",
+      workloadHours: 80,
+    }),
+    destinationConflict: true,
+    rank: 1,
+  });
+  assert.ok(matchAlerts(item).includes("Destino compartilhado"));
+  assert.equal(matchPriority(item), "Alta");
+});
+
 test("sanitize spreadsheet cell blocks formula-like prefixes", () => {
   assert.equal(sanitizeSpreadsheetCell('=HYPERLINK("http://example.com")'), `'=HYPERLINK("http://example.com")`);
   assert.equal(sanitizeSpreadsheetCell("+cmd"), "'+cmd");

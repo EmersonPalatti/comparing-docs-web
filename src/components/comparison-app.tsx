@@ -2,6 +2,7 @@ import { ArrowLeft, Download, FileSpreadsheet, FileText, LoaderCircle, RotateCcw
 import { toast } from "sonner";
 import { Dropzone } from "@/components/dropzone";
 import { MatchTable } from "@/components/match-table";
+import { PairPanel } from "@/components/pair-panel";
 import { SubjectEditor } from "@/components/subject-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,10 @@ function filterRows(
   selectedAlerts: string[],
   onlyManual: boolean,
   sortMode: SortMode,
+  bestOnly: boolean,
 ): MatchRow[] {
   const filtered = rows.filter((row) => {
+    if (bestOnly && row.isBest === false) return false;
     if (classifications.length && !classifications.includes(row.classificationLabel)) return false;
     if (onlyManual && !row.manualReview) return false;
     if (selectedAlerts.length && !selectedAlerts.some((alert) => row.alertList.includes(alert))) return false;
@@ -68,14 +71,18 @@ export function ComparisonApp() {
     store.selectedAlerts,
     store.onlyManual,
     store.sortMode,
+    store.candidateMode === "best",
   );
   const selected = store.rows.filter((row) => row.selected);
-  const allClassifications = [...new Set(store.rows.map((row) => row.classificationLabel))];
-  const allAlerts = [...new Set(store.rows.flatMap((row) => row.alertList))].sort();
-  const strong = store.rows.filter((row) => row.classification === "strong_equivalency").length;
-  const likely = store.rows.filter((row) => row.classification === "likely_equivalency").length;
-  const manual = store.rows.filter((row) => row.manualReview).length;
-  const none = store.rows.filter((row) => row.classification === "no_match").length;
+  const bestRows = store.rows.filter((row) => row.isBest);
+  const allClassifications = [...new Set(bestRows.map((row) => row.classificationLabel))];
+  const allAlerts = [...new Set(bestRows.flatMap((row) => row.alertList))].sort();
+  const strong = bestRows.filter((row) => row.classification === "strong_equivalency").length;
+  const likely = bestRows.filter((row) => row.classification === "likely_equivalency").length;
+  const manual = bestRows.filter((row) => row.manualReview).length;
+  const none = bestRows.filter((row) => row.classification === "no_match").length;
+  const conflicts = bestRows.filter((row) => row.destinationConflict).length;
+  const activeRow = store.rows.find((row) => row.id === store.activeRowId) ?? null;
 
   async function downloadPdf() {
     try {
@@ -142,13 +149,13 @@ export function ComparisonApp() {
             <div className="grid gap-4 md:grid-cols-2">
               <Dropzone
                 label="Documento anterior"
-                hint="PDF, XLSX, CSV ou TXT"
+                hint="PDF, DOCX, XLSX, CSV ou TXT"
                 fileName={store.previousFile?.name ?? null}
                 onFile={store.setPreviousFile}
               />
               <Dropzone
                 label="Documento atual"
-                hint="PDF, XLSX, CSV ou TXT"
+                hint="PDF, DOCX, XLSX, CSV ou TXT"
                 fileName={store.currentFile?.name ?? null}
                 onFile={store.setCurrentFile}
               />
@@ -172,7 +179,7 @@ export function ComparisonApp() {
             </div>
             <p className="text-sm text-muted">
               O exemplo é fictício e cobre match forte, carga horária menor, revisão manual e disciplina sem equivalente.
-              O kit baixa TXT, CSV e uma tabela estilo histórico para testar o envio. PDFs precisam ter texto selecionável.
+              O kit baixa TXT, CSV e uma tabela estilo histórico para testar o envio. PDFs precisam ter texto selecionável; Word (.docx) também é aceito.
             </p>
           </section>
         ) : null}
@@ -213,34 +220,46 @@ export function ComparisonApp() {
 
         {store.step === "results" ? (
           <section className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
               <Metric label="Anteriores" value={store.previousSubjects.length} />
               <Metric label="Atuais" value={store.currentSubjects.length} />
               <Metric label="Possíveis equivalências" value={strong + likely} />
               <Metric label="Revisão manual" value={manual} />
               <Metric label="Sem equivalência forte" value={none} />
+              <Metric label="Destino compartilhado" value={conflicts} />
             </div>
 
             <div className="flex flex-col gap-3 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => store.setClassifications([])}
+                  className={cn(
+                    "h-11 rounded-full px-3 text-xs",
+                    store.classifications.length === 0 ? "bg-accent text-accent-fg" : "bg-bg text-muted",
+                  )}
+                  aria-pressed={store.classifications.length === 0}
+                >
+                  Todas
+                </button>
                 {allClassifications.map((item) => {
-                  const active = store.classifications.includes(item);
+                  const pressed = store.classifications.includes(item);
                   return (
                     <button
                       key={item}
                       type="button"
                       onClick={() =>
                         store.setClassifications(
-                          active
+                          pressed
                             ? store.classifications.filter((value) => value !== item)
                             : [...store.classifications, item],
                         )
                       }
-                        className={cn(
-                        "h-9 rounded-full px-3 text-xs",
-                        active ? "bg-accent text-accent-fg" : "bg-bg text-muted",
+                      className={cn(
+                        "h-11 rounded-full px-3 text-xs",
+                        pressed ? "bg-accent text-accent-fg" : "bg-bg text-muted",
                       )}
-                      aria-pressed={active}
+                      aria-pressed={pressed}
                     >
                       {item}
                     </button>
@@ -257,12 +276,22 @@ export function ComparisonApp() {
                   />
                   Somente revisão manual
                 </label>
+                <label className="flex h-11 items-center gap-2 text-sm text-fg">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-accent"
+                    checked={store.candidateMode === "all"}
+                    onChange={(event) => store.setCandidateMode(event.target.checked ? "all" : "best")}
+                  />
+                  Mostrar 2º e 3º candidatos
+                </label>
                 <label className="flex items-center gap-2 text-sm text-muted">
                   Ordenar
                   <select
                     className="h-11 rounded-sm border border-border bg-surface px-3 text-sm text-fg"
                     value={store.sortMode}
                     onChange={(event) => store.setSortMode(event.target.value as SortMode)}
+                    aria-label="Ordenar"
                   >
                     <option>Prioridade</option>
                     <option>Score</option>
@@ -278,10 +307,23 @@ export function ComparisonApp() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button type="button" variant="outline" onClick={store.selectUniquePairs}>
+                Selecionar pares únicos
+              </Button>
+              <p className="self-center text-sm text-muted">
+                Clique numa linha para ver ementas lado a lado. O modo padrão mostra só o melhor par de cada origem.
+              </p>
+            </div>
+
+            {activeRow ? <PairPanel row={activeRow} onClose={() => store.setActiveRowId(null)} /> : null}
+
             <MatchTable
               rows={visible}
+              activeId={store.activeRowId}
               onSelect={store.setRowSelected}
               onNote={store.setRowNote}
+              onOpen={(id) => store.setActiveRowId(id === store.activeRowId ? null : id)}
               onSelectAll={(selectedAll) => {
                 visible.forEach((row) => store.setRowSelected(row.id, selectedAll));
               }}

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { MAX_UPLOAD_BYTES } from "@/domain/config";
 import { cn } from "@/lib/utils";
 
-const ACCEPT = ".pdf,.xlsx,.xls,.csv,.txt,.md";
+const ACCEPT = ".pdf,.docx,.xlsx,.xls,.csv,.txt,.md";
 
 type DropzoneProps = {
   label: string;
