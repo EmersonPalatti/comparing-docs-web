@@ -150,13 +150,13 @@ export function ComparisonApp() {
             <div className="grid gap-4 md:grid-cols-2">
               <Dropzone
                 label="Histórico de origem"
-                hint="PDF ou Word do aluno, com texto selecionável"
+                hint="PDF, Word, planilha, CSV ou texto"
                 fileName={store.previousFile?.name ?? null}
                 onFile={store.setPreviousFile}
               />
               <Dropzone
                 label="Matriz de destino"
-                hint="Planilha XLSX da universidade, CSV ou PDF"
+                hint="PDF, Word, planilha, CSV ou texto"
                 fileName={store.currentFile?.name ?? null}
                 onFile={store.setCurrentFile}
               />
@@ -179,8 +179,9 @@ export function ComparisonApp() {
               </Button>
             </div>
             <p className="text-sm text-muted">
-              O fluxo típico: a universidade envia a matriz em XLSX; o aluno envia o histórico em PDF ou Word.
-              PDFs precisam ter texto selecionável. O kit baixa TXT, CSV e uma tabela estilo histórico para testar o envio.
+              Os dois lados aceitam os mesmos formatos. O mais comum é o histórico em PDF ou Word e a matriz em
+              XLSX, mas CSV e TXT também valem. PDFs precisam ter texto selecionável; o kit baixa arquivos fictícios
+              para testar o envio.
             </p>
           </section>
         ) : null}
