@@ -315,7 +315,7 @@ export function ComparisonApp() {
                 Selecionar pares únicos
               </Button>
               <p className="self-center text-sm text-muted">
-                Clique numa linha para ver ementas lado a lado. O modo padrão mostra só o melhor par de cada origem.
+                Clique numa linha para ver ementas lado a lado. O modo padrão mostra o par sugerido pela atribuição global; ligue os 2º e 3º candidatos para comparar.
               </p>
             </div>
 

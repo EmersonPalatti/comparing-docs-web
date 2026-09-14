@@ -28,6 +28,9 @@ export type SubjectMatch = {
   rank?: number;
   destinationConflict?: boolean;
   assignedUnique?: boolean;
+  codeMatch?: boolean;
+  levelConflict?: boolean;
+  blockedStatus?: boolean;
 };
 
 export function createSubject(partial: {

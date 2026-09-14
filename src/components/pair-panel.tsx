@@ -41,12 +41,14 @@ export function PairPanel({ row, onClose }: PairPanelProps) {
       <div className="grid gap-4 md:grid-cols-2">
         <EmentaBlock
           title={row.previousName}
+          code={row.previousCode}
           hours={row.previousHours}
           text={row.previousSyllabus}
           side="Anterior"
         />
         <EmentaBlock
           title={row.currentName}
+          code={row.currentCode}
           hours={row.currentHours}
           text={row.currentSyllabus}
           side="Atual"
@@ -58,11 +60,13 @@ export function PairPanel({ row, onClose }: PairPanelProps) {
 
 function EmentaBlock({
   title,
+  code,
   hours,
   text,
   side,
 }: {
   title: string;
+  code: string;
   hours: number | null;
   text: string;
   side: string;
@@ -71,7 +75,10 @@ function EmentaBlock({
     <div className="rounded-lg bg-bg p-4">
       <p className="text-xs tracking-wide text-muted uppercase">{side}</p>
       <p className="mt-1 font-medium text-fg">{title}</p>
-      <p className="mt-1 text-xs tabular-nums text-muted">{hours == null ? "CH n/d" : `${hours}h`}</p>
+      <p className="mt-1 text-xs tabular-nums text-muted">
+        {code ? <span className="mr-2 font-mono">{code}</span> : null}
+        {hours == null ? "CH n/d" : `${hours}h`}
+      </p>
       <p className="mt-3 text-sm leading-relaxed text-fg">
         {text.trim() ? text : "Ementa não identificada neste documento."}
       </p>

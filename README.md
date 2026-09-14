@@ -28,9 +28,12 @@ Na revisão, cada disciplina mostra código, período e trecho da ementa para co
 
 - Parser em três estratégias: tabela/CSV, tabela de código de histórico, texto livre
 - CSV aceita carga como `80` ou `80h`
-- Similaridade de nome (SequenceMatcher + tokens), TF-IDF, carga horária e créditos
-- Numerais romanos (I/II) entram no token de nome, para não colapsar Cálculo I com Cálculo II
-- Classificação, prioridade, alertas e atribuição **1-para-1** (aviso quando duas origens apontam para o mesmo destino)
+- Similaridade de nome (SequenceMatcher + token-set + Jaro-Winkler), TF-IDF, carga horária e créditos
+- Código coincidente sobe o par; I/II e introdução vs avançado não passam de similaridade parcial
+- Situação “a cursar” / reprovado não entra na atribuição 1-para-1
+- CH de origem abaixo de 75% da destino não pode ser “forte”; abaixo de 60% não passa de parcial
+- Atribuição **1-para-1 pelo algoritmo húngaro** (não gulosa), com aviso de destino compartilhado
+
 - Export Excel (resumido, detalhado, selecionado) e PDF
 
 ## Fora deste recorte

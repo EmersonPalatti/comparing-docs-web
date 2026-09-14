@@ -8,9 +8,11 @@ export type MatchRow = {
   previousName: string;
   previousHours: number | null;
   previousSyllabus: string;
+  previousCode: string;
   currentName: string;
   currentHours: number | null;
   currentSyllabus: string;
+  currentCode: string;
   priority: string;
   alerts: string;
   alertList: string[];
@@ -47,9 +49,11 @@ export function matchesToRows(matches: SubjectMatch[]): MatchRow[] {
       previousName: sanitizeSpreadsheetCell(match.previousSubject.name),
       previousHours: match.previousSubject.workloadHours,
       previousSyllabus: match.previousSubject.syllabus ?? "",
+      previousCode: match.previousSubject.code ?? "",
       currentName: sanitizeSpreadsheetCell(match.currentSubject.name),
       currentHours: match.currentSubject.workloadHours,
       currentSyllabus: match.currentSubject.syllabus ?? "",
+      currentCode: match.currentSubject.code ?? "",
       priority: matchPriority(match),
       alerts: alerts.join(" | "),
       alertList: alerts,

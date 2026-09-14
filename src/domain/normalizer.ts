@@ -6,6 +6,13 @@ const ABBREVIATIONS: Array<[RegExp, string]> = [
   [/\bintro\.?\b/gi, "introducao"],
   [/\bprog\.?\b/gi, "programacao"],
   [/\badm\.?\b/gi, "administracao"],
+  [/\bcalc\.?\b/gi, "calculo"],
+  [/\bbioq\.?\b/gi, "bioquimica"],
+  [/\bling\.?\b/gi, "linguagem"],
+  [/\bfis\.?\b/gi, "fisica"],
+  [/\bquim\.?\b/gi, "quimica"],
+  [/\bfarm\.?\b/gi, "farmacologia"],
+  [/\balg\.?\b/gi, "algoritmo"],
 ];
 
 export function stripAccents(value: string): string {
