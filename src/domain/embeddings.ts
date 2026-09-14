@@ -17,10 +17,6 @@ const STOPWORDS = new Set([
   "e",
   "a",
   "o",
-  "i",
-  "ii",
-  "iii",
-  "iv",
 ]);
 
 export function subjectSimilarityMatrix(
@@ -56,6 +52,9 @@ export function tokenOverlapSimilarity(previous: Subject, current: Subject): num
 
   const previousNameTokens = meaningfulTokens(previous.name);
   const currentNameTokens = meaningfulTokens(current.name);
+  if (conflictingRomanNumerals(previousNameTokens, currentNameTokens)) {
+    return Math.min(jaccard, 0.45);
+  }
   const nameOverlap =
     intersect(previousNameTokens, currentNameTokens).size /
     Math.max(Math.min(previousNameTokens.size, currentNameTokens.size), 1);
@@ -69,7 +68,8 @@ export function tokenOverlapSimilarity(previous: Subject, current: Subject): num
 export function meaningfulTokens(text: string): Set<string> {
   const tokens = new Set<string>();
   for (const token of normalizeText(text).split(" ")) {
-    if (token.length > 2 && !STOPWORDS.has(token) && !/^\d+$/.test(token)) {
+    const roman = /^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/.test(token);
+    if ((token.length > 2 || roman) && !STOPWORDS.has(token) && !/^\d+$/.test(token)) {
       tokens.add(token);
     }
   }
@@ -82,6 +82,14 @@ function intersect(a: Set<string>, b: Set<string>): Set<string> {
     if (b.has(value)) result.add(value);
   }
   return result;
+}
+
+const ROMAN_TOKEN = /^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/;
+
+function conflictingRomanNumerals(left: Set<string>, right: Set<string>): boolean {
+  const leftRoman = [...left].filter((token) => ROMAN_TOKEN.test(token)).sort().join(" ");
+  const rightRoman = [...right].filter((token) => ROMAN_TOKEN.test(token)).sort().join(" ");
+  return Boolean(leftRoman && rightRoman && leftRoman !== rightRoman);
 }
 
 function tokenize(text: string): string[] {

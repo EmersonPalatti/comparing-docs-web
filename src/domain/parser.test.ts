@@ -105,3 +105,13 @@ Algebra Linear,60h,matrizes e vetores
   assert.equal(subjects[0].workloadHours, 80);
   assert.equal(subjects[1].workloadHours, 60);
 });
+
+test("csv aliases accept componente curricular and carga horaria", () => {
+  const text = `componente curricular,carga horaria,ementa
+Anatomia Humana,80,sistemas organicos
+`;
+  const subjects = parseSubjects(text, "matriz.csv");
+  assert.equal(subjects[0].name, "Anatomia Humana");
+  assert.equal(subjects[0].workloadHours, 80);
+});
+

@@ -1,6 +1,7 @@
 import { createSubject, type Subject } from "./models.ts";
 import { normalizeSubjects, normalizeText } from "./normalizer.ts";
 import { MAX_SUBJECTS } from "./config.ts";
+import { parseGrid, parseDelimited } from "./tables.ts";
 
 const WORKLOAD_RE = /(?<hours>\d{1,4})\s*(?:h|horas|hrs)\b/i;
 const CREDITS_RE = /(?<credits>\d+(?:[,.]\d+)?)\s*(?:cr[eé]ditos?|cred\.?)\b/i;
@@ -79,61 +80,7 @@ export function analyzeLines(text: string): ParsedLine[] {
 }
 
 function parseCsvSubjects(text: string, sourceDocument: string): Subject[] {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return [];
-  const headers = rows[0];
-  const fieldMap = new Map(headers.map((field) => [field.toLowerCase().trim(), field]));
-  const nameKey = [...fieldMap.keys()].find((key) =>
-    ["name", "subject", "disciplina", "componente curricular"].includes(key),
-  );
-  if (!nameKey) return [];
-  const nameHeader = fieldMap.get(nameKey);
-  if (!nameHeader) return [];
-
-  const subjects: Subject[] = [];
-  for (const row of rows.slice(1)) {
-    const record: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      record[header] = row[index] ?? "";
-    });
-    const name = (record[nameHeader] || "").trim();
-    if (!name) continue;
-    const workload = firstPresent(record, fieldMap, [
-      "workload_hours",
-      "workload",
-      "carga horaria",
-      "carga_horaria",
-      "horas",
-    ]);
-    const credits = firstPresent(record, fieldMap, ["credits", "creditos", "créditos"]);
-    const syllabus = firstPresent(record, fieldMap, ["syllabus", "ementa", "conteudo", "conteúdo"]);
-    const joined = Object.values(record).join(",");
-    subjects.push(
-      createSubject({
-        name,
-        sourceDocument,
-        workloadHours: workload ? extractWorkload(String(workload)) : extractWorkload(joined),
-        credits: credits ? extractCredits(String(credits)) : extractCredits(joined),
-        syllabus: syllabus ? String(syllabus).trim() : null,
-        rawText: Object.entries(record)
-          .filter(([, value]) => value)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join(", "),
-      }),
-    );
-  }
-  return subjects;
-}
-
-function firstPresent(
-  row: Record<string, string>,
-  fieldMap: Map<string, string>,
-  names: string[],
-): string | null {
-  for (const [normalized, original] of fieldMap) {
-    if (names.includes(normalized) && row[original]) return row[original];
-  }
-  return null;
+  return parseGrid(parseDelimited(text), sourceDocument);
 }
 
 function parseTextSubjects(text: string, sourceDocument: string): Subject[] {
@@ -324,47 +271,6 @@ function buildSubject(data: Record<string, unknown>, sourceDocument: string): Su
     syllabus: data.syllabus ? String(data.syllabus).trim() : null,
     rawText: data.rawText ? String(data.rawText).trim() : null,
   });
-}
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (quoted) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i += 1;
-        } else {
-          quoted = false;
-        }
-      } else {
-        cell += char;
-      }
-      continue;
-    }
-    if (char === '"') {
-      quoted = true;
-    } else if (char === ",") {
-      row.push(cell);
-      cell = "";
-    } else if (char === "\n") {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-    } else if (char !== "\r") {
-      cell += char;
-    }
-  }
-  if (cell.length || row.length) {
-    row.push(cell);
-    rows.push(row);
-  }
-  return rows.filter((entry) => entry.some((value) => value.trim()));
 }
 
 const PARSE_STRATEGIES: ParseStrategy[] = [

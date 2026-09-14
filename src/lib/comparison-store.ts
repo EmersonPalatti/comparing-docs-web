@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { DISCLAIMER_PT } from "@/domain/config";
-import { loadDocument, TextExtractionError, friendlyExtractionError } from "@/domain/extract";
+import { loadDocument, TextExtractionError, friendlyExtractionError, pickSubjects } from "@/domain/extract";
 import { matchSubjects } from "@/domain/matcher";
 import { type Subject } from "@/domain/models";
 import { parseSubjects } from "@/domain/parser";
@@ -25,6 +25,8 @@ type State = {
   currentSubjects: Subject[];
   previousReview: ReviewRow[];
   currentReview: ReviewRow[];
+  previousNotes: string[];
+  currentNotes: string[];
   rows: MatchRow[];
   error: string | null;
   busy: boolean;
@@ -81,6 +83,8 @@ export const useComparisonStore = create<State>()(
       currentSubjects: [],
       previousReview: [],
       currentReview: [],
+      previousNotes: [],
+      currentNotes: [],
       rows: [],
       error: null,
       busy: false,
@@ -110,6 +114,8 @@ export const useComparisonStore = create<State>()(
           currentSubjects: current,
           previousReview: subjectsToReview(previous),
           currentReview: subjectsToReview(current),
+          previousNotes: [],
+          currentNotes: [],
           rows: [],
           error: null,
           step: "review",
@@ -128,8 +134,14 @@ export const useComparisonStore = create<State>()(
             loadDocument(previousFile, "documento_anterior"),
             loadDocument(currentFile, "documento_atual"),
           ]);
-          const previousSubjects = parseSubjects(previousDoc.text, previousDoc.filename);
-          const currentSubjects = parseSubjects(currentDoc.text, currentDoc.filename);
+          const previousSubjects = pickSubjects(
+            previousDoc.subjects,
+            parseSubjects(previousDoc.text, previousDoc.filename),
+          );
+          const currentSubjects = pickSubjects(
+            currentDoc.subjects,
+            parseSubjects(currentDoc.text, currentDoc.filename),
+          );
           if (!previousSubjects.length) {
             throw new Error("Nenhuma disciplina foi encontrada no documento anterior.");
           }
@@ -143,6 +155,8 @@ export const useComparisonStore = create<State>()(
             currentSubjects,
             previousReview: subjectsToReview(previousSubjects),
             currentReview: subjectsToReview(currentSubjects),
+            previousNotes: previousDoc.notes ?? [],
+            currentNotes: currentDoc.notes ?? [],
             rows: [],
             step: "review",
             busy: false,
@@ -231,6 +245,8 @@ export const useComparisonStore = create<State>()(
           currentSubjects: [],
           previousReview: [],
           currentReview: [],
+          previousNotes: [],
+          currentNotes: [],
           rows: [],
           error: null,
           busy: false,
@@ -254,6 +270,8 @@ export const useComparisonStore = create<State>()(
         currentSubjects: state.currentSubjects,
         previousReview: state.previousReview,
         currentReview: state.currentReview,
+        previousNotes: state.previousNotes,
+        currentNotes: state.currentNotes,
         rows: state.rows,
         classifications: state.classifications,
         selectedAlerts: state.selectedAlerts,

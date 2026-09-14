@@ -107,7 +107,8 @@ export function ComparisonApp() {
             <p className="text-xs font-medium tracking-[0.22em] text-accent uppercase">Análise acadêmica</p>
             <h1 className="mt-1 font-display text-4xl font-medium tracking-tight text-fg">Equivalência</h1>
             <p className="mt-2 max-w-xl text-sm text-muted">
-              Compare disciplinas entre dois documentos e gere uma tabela ranqueada para revisão humana.
+              Histórico do aluno de um lado, matriz da universidade de destino do outro. A leitura
+              acontece no navegador e gera uma tabela ranqueada para revisão humana.
             </p>
           </div>
           <ol className="flex list-none gap-2 p-0">
@@ -148,14 +149,14 @@ export function ComparisonApp() {
             <Card className="text-sm text-muted">{DISCLAIMER_PT}</Card>
             <div className="grid gap-4 md:grid-cols-2">
               <Dropzone
-                label="Documento anterior"
-                hint="PDF, DOCX, XLSX, CSV ou TXT"
+                label="Histórico de origem"
+                hint="PDF ou Word do aluno, com texto selecionável"
                 fileName={store.previousFile?.name ?? null}
                 onFile={store.setPreviousFile}
               />
               <Dropzone
-                label="Documento atual"
-                hint="PDF, DOCX, XLSX, CSV ou TXT"
+                label="Matriz de destino"
+                hint="Planilha XLSX da universidade, CSV ou PDF"
                 fileName={store.currentFile?.name ?? null}
                 onFile={store.setCurrentFile}
               />
@@ -178,8 +179,8 @@ export function ComparisonApp() {
               </Button>
             </div>
             <p className="text-sm text-muted">
-              O exemplo é fictício e cobre match forte, carga horária menor, revisão manual e disciplina sem equivalente.
-              O kit baixa TXT, CSV e uma tabela estilo histórico para testar o envio. PDFs precisam ter texto selecionável; Word (.docx) também é aceito.
+              O fluxo típico: a universidade envia a matriz em XLSX; o aluno envia o histórico em PDF ou Word.
+              PDFs precisam ter texto selecionável. O kit baixa TXT, CSV e uma tabela estilo histórico para testar o envio.
             </p>
           </section>
         ) : null}
@@ -187,20 +188,22 @@ export function ComparisonApp() {
         {store.step === "review" ? (
           <section className="flex flex-col gap-5">
             <p className="text-sm text-muted">
-              Revise nomes e cargas horárias antes da comparação. Linhas com nome vazio são ignoradas. Ementa e
-              demais dados extraídos continuam preservados.
+              Revise nomes e cargas antes da comparação. Código, período e ementa extraídos aparecem abaixo de cada
+              nome para você conferir se a planilha ou o histórico foram lidos certo. Linhas com nome vazio são ignoradas.
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
               <SubjectEditor
-                title="Documento anterior"
+                title="Histórico de origem"
                 rows={store.previousReview}
+                notes={store.previousNotes ?? []}
                 onChange={store.updatePreviousReview}
                 onAdd={store.addPreviousRow}
                 onRemove={store.removePreviousRow}
               />
               <SubjectEditor
-                title="Documento atual"
+                title="Matriz de destino"
                 rows={store.currentReview}
+                notes={store.currentNotes ?? []}
                 onChange={store.updateCurrentReview}
                 onAdd={store.addCurrentRow}
                 onRemove={store.removeCurrentRow}

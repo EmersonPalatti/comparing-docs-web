@@ -6,12 +6,13 @@ import type { ReviewRow } from "@/domain/subjects";
 type SubjectEditorProps = {
   title: string;
   rows: ReviewRow[];
+  notes?: string[];
   onChange: (index: number, patch: Partial<ReviewRow>) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
 };
 
-export function SubjectEditor({ title, rows, onChange, onAdd, onRemove }: SubjectEditorProps) {
+export function SubjectEditor({ title, rows, notes = [], onChange, onAdd, onRemove }: SubjectEditorProps) {
   return (
     <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)] sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -21,6 +22,13 @@ export function SubjectEditor({ title, rows, onChange, onAdd, onRemove }: Subjec
           Adicionar
         </Button>
       </div>
+      {notes.length ? (
+        <ul className="mb-3 list-none space-y-1 p-0 text-xs text-muted">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-80 border-separate border-spacing-y-2 text-sm">
           <thead>
@@ -33,19 +41,27 @@ export function SubjectEditor({ title, rows, onChange, onAdd, onRemove }: Subjec
           <tbody>
             {rows.map((row, index) => (
               <tr key={`${title}-${index}`}>
-                <td className="px-1">
+                <td className="px-1 align-top">
                   <Input
                     value={row.name}
                     aria-label={`Disciplina ${index + 1} de ${title}`}
                     onChange={(event) => onChange(index, { name: event.target.value })}
+                    className="bg-bg"
                   />
+                  {row.code || row.syllabus || row.semester ? (
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
+                      {row.code ? <span className="mr-2 font-mono text-fg">{row.code}</span> : null}
+                      {row.semester ? <span className="mr-2">{row.semester}</span> : null}
+                      {row.syllabus || ""}
+                    </p>
+                  ) : null}
                 </td>
-                <td className="px-1">
+                <td className="px-1 align-top">
                   <Input
                     type="number"
                     min={0}
                     inputMode="numeric"
-                    className="tabular-nums"
+                    className="bg-bg tabular-nums"
                     value={row.workloadHours ?? ""}
                     aria-label={`Carga horária ${index + 1} de ${title}`}
                     onChange={(event) =>
@@ -55,7 +71,7 @@ export function SubjectEditor({ title, rows, onChange, onAdd, onRemove }: Subjec
                     }
                   />
                 </td>
-                <td className="px-1">
+                <td className="px-1 align-top">
                   <Button
                     variant="ghost"
                     size="sm"

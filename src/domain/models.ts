@@ -1,6 +1,7 @@
 export type Subject = {
   name: string;
   sourceDocument: string;
+  code: string | null;
   workloadHours: number | null;
   credits: number | null;
   semester: string | null;
@@ -32,6 +33,7 @@ export type SubjectMatch = {
 export function createSubject(partial: {
   name: string;
   sourceDocument: string;
+  code?: string | null;
   workloadHours?: number | null;
   credits?: number | null;
   semester?: string | null;
@@ -46,6 +48,7 @@ export function createSubject(partial: {
   return {
     name: partial.name,
     sourceDocument: partial.sourceDocument,
+    code: partial.code ?? null,
     workloadHours: partial.workloadHours ?? null,
     credits: partial.credits ?? null,
     semester: partial.semester ?? null,

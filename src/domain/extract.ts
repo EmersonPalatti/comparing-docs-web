@@ -1,4 +1,3 @@
-import ExcelJS from "exceljs";
 import {
   ALLOWED_UPLOAD_EXTENSIONS,
   MAX_PDF_PAGES,
@@ -6,18 +5,21 @@ import {
   MAX_SPREADSHEET_ROWS,
   MAX_UPLOAD_BYTES,
 } from "./config.ts";
+import { TextExtractionError } from "./extract-core.ts";
+import { reconstructPdfGrid, reconstructPdfText } from "./pdf-layout.ts";
+import { parseSubjects } from "./parser.ts";
+import { extractSpreadsheet } from "./spreadsheet.ts";
+import { parseGrid, parseDelimited, gridsToText } from "./tables.ts";
+import { type Subject } from "./models.ts";
 
-export class TextExtractionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TextExtractionError";
-  }
-}
+export { cellDisplayValue, TextExtractionError } from "./extract-core.ts";
 
 export type ExtractedDocument = {
   filename: string;
   sourceDocument: string;
   text: string;
+  subjects?: Subject[];
+  notes?: string[];
 };
 
 export type BinarySource = {
@@ -69,23 +71,22 @@ export function extractTextFromTxt(content: Uint8Array): string {
   throw new TextExtractionError("Não foi possível decodificar o arquivo de texto.");
 }
 
-export function cellDisplayValue(value: ExcelJS.CellValue): string {
-  if (value == null) return "";
-  if (typeof value === "object") {
-    if ("formula" in value) {
-      const result = "result" in value ? value.result : "";
-      return cellDisplayValue(result as ExcelJS.CellValue);
-    }
-    if ("richText" in value && Array.isArray(value.richText)) {
-      return value.richText.map((part) => part.text).join("");
-    }
-    if ("text" in value && value.text != null) return String(value.text);
-    if (value instanceof Date) return value.toISOString();
-    if ("error" in value) return "";
-    return "";
-  }
-  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  return String(value);
+export function extractCsv(
+  content: Uint8Array,
+  sourceDocument: string,
+  limits: { rows?: number; columns?: number } = {},
+): { text: string; subjects: Subject[]; notes: string[] } {
+  const maxRows = limits.rows ?? MAX_SPREADSHEET_ROWS;
+  const maxColumns = limits.columns ?? MAX_SPREADSHEET_COLUMNS;
+  const text = limitDelimitedText(extractTextFromTxt(content), maxRows, maxColumns);
+  const subjects = parseGrid(parseDelimited(text), sourceDocument);
+  return {
+    text,
+    subjects,
+    notes: subjects.length
+      ? [`${subjects.length} disciplina(s) no CSV.`]
+      : ["CSV sem cabeçalho de disciplina reconhecido; usando o texto corrido."],
+  };
 }
 
 export async function extractTextFromSpreadsheet(
@@ -103,40 +104,11 @@ export async function extractTextFromSpreadsheet(
   const maxColumns = limits.columns ?? MAX_SPREADSHEET_COLUMNS;
 
   if (suffix === ".csv") {
-    return limitDelimitedText(extractTextFromTxt(content), maxRows, maxColumns);
+    return extractCsv(content, "planilha.csv", { rows: maxRows, columns: maxColumns }).text;
   }
 
-  const workbook = new ExcelJS.Workbook();
-  const copy = new Uint8Array(content.byteLength);
-  copy.set(content);
-  try {
-    await workbook.xlsx.load(copy as never);
-  } catch (error) {
-    if (error instanceof TextExtractionError) throw error;
-    throw new TextExtractionError("O arquivo XLSX está corrompido ou não é uma planilha válida.");
-  }
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new TextExtractionError("O arquivo de planilha está vazio.");
-
-  const rows: string[][] = [];
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    const values = Array.isArray(row.values) ? row.values.slice(1) : [];
-    rows.push(values.map((cell) => cellDisplayValue(cell as ExcelJS.CellValue)));
-  });
-  if (!rows.length) throw new TextExtractionError("O arquivo de planilha está vazio.");
-  const dataRowCount = Math.max(0, rows.length - 1);
-  const width = Math.max(...rows.map((row) => row.length), 0);
-  if (dataRowCount > maxRows) {
-    throw new TextExtractionError(
-      `Limite de planilha excedido: máximo de ${maxRows} linhas por arquivo.`,
-    );
-  }
-  if (width > maxColumns) {
-    throw new TextExtractionError(
-      `Limite de planilha excedido: máximo de ${maxColumns} colunas por arquivo.`,
-    );
-  }
-  return rows.map((row) => row.join(",")).join("\n").trim();
+  const extracted = await extractSpreadsheet(content, "planilha", { rows: maxRows, columns: maxColumns });
+  return extracted.text;
 }
 
 function limitDelimitedText(text: string, maxRows: number, maxColumns: number): string {
@@ -161,6 +133,15 @@ export async function extractTextFromPdf(
   content: Uint8Array,
   maxPages = MAX_PDF_PAGES,
 ): Promise<string> {
+  const extracted = await extractPdf(content, "documento.pdf", maxPages);
+  return extracted.text;
+}
+
+export async function extractPdf(
+  content: Uint8Array,
+  sourceDocument: string,
+  maxPages = MAX_PDF_PAGES,
+): Promise<{ text: string; subjects: Subject[]; notes: string[] }> {
   const pdfjs = await import("pdfjs-dist");
   if (typeof window !== "undefined") {
     const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
@@ -173,15 +154,23 @@ export async function extractTextFromPdf(
   } as Parameters<typeof pdfjs.getDocument>[0]);
   const pdf = await loadingTask.promise;
   const pages: string[] = [];
+  const grids: string[][][] = [];
+  const notes: string[] = [];
   const limit = Math.min(pdf.numPages, maxPages);
   for (let pageNumber = 1; pageNumber <= limit; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .trim();
-    if (pageText) pages.push(pageText);
+    const items = textContent.items.filter((item) => "str" in item) as Array<{
+      str?: string;
+      width?: number;
+      height?: number;
+      transform?: number[];
+    }>;
+    const grid = reconstructPdfGrid(items);
+    const layoutText =
+      reconstructPdfText(items) || items.map((item) => ("str" in item ? item.str : "")).join(" ").trim();
+    if (grid.some((row) => row.filter(Boolean).length > 1)) grids.push(grid);
+    if (layoutText) pages.push(layoutText);
   }
   const text = cleanText(pages.join("\n\n"));
   if (!text) {
@@ -189,23 +178,95 @@ export async function extractTextFromPdf(
       "This PDF does not appear to contain selectable text. OCR support is not available in the current MVP.",
     );
   }
-  return text;
+  if (pdf.numPages > maxPages) {
+    notes.push(`PDF truncado nas primeiras ${maxPages} páginas de ${pdf.numPages}.`);
+  }
+  const fromGrid = grids.flatMap((grid) => parseGrid(grid, sourceDocument));
+  const fromText = parseSubjects(text, sourceDocument);
+  const subjects = pickSubjects(fromGrid, fromText);
+  notes.push(
+    fromGrid.length
+      ? `${subjects.length} disciplina(s) lidas da tabela do PDF.`
+      : subjects.length
+        ? `${subjects.length} disciplina(s) lidas do texto do PDF.`
+        : "PDF sem tabela reconhecida; confira a revisão manual.",
+  );
+  return { text, subjects, notes };
 }
 
 export async function extractTextFromDocx(content: Uint8Array): Promise<string> {
+  const extracted = await extractDocx(content, "documento.docx");
+  return extracted.text;
+}
+
+export async function extractDocx(
+  content: Uint8Array,
+  sourceDocument: string,
+): Promise<{ text: string; subjects: Subject[]; notes: string[] }> {
   const mammoth = await import("mammoth");
   const copy = content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength);
   try {
-    const result = await mammoth.extractRawText({ arrayBuffer: copy as ArrayBuffer });
-    const text = cleanText(result.value || "");
-    if (!text) {
-      throw new TextExtractionError("O documento Word está vazio.");
-    }
-    return text;
+    const [htmlResult, rawResult] = await Promise.all([
+      mammoth.convertToHtml({ arrayBuffer: copy as ArrayBuffer }),
+      mammoth.extractRawText({ arrayBuffer: copy as ArrayBuffer }),
+    ]);
+    const grids = htmlToGrids(htmlResult.value || "");
+    const fromGrid = grids.flatMap((grid) => parseGrid(grid, sourceDocument));
+    const tableText = gridsToText(grids);
+    const raw = cleanText(rawResult.value || "");
+    const text = [tableText, raw].filter(Boolean).join("\n\n").trim();
+    if (!text) throw new TextExtractionError("O documento Word está vazio.");
+    const fromText = parseSubjects(raw, sourceDocument);
+    const subjects = pickSubjects(fromGrid, fromText);
+    const notes = fromGrid.length
+      ? [`${subjects.length} disciplina(s) em tabela(s) do Word.`]
+      : subjects.length
+        ? [`${subjects.length} disciplina(s) no texto do Word.`]
+        : ["Word sem tabela reconhecida; usando o texto corrido."];
+    return { text, subjects, notes };
   } catch (error) {
     if (error instanceof TextExtractionError) throw error;
     throw new TextExtractionError("Não foi possível ler o arquivo DOCX.");
   }
+}
+
+function htmlToGrids(html: string): string[][][] {
+  const tables = html.match(/<table[\s\S]*?<\/table>/gi) ?? [];
+  return tables
+    .map((table) => {
+      const rows = table.match(/<tr[\s\S]*?<\/tr>/gi) ?? [];
+      return rows.map((row) => {
+        const cells = row.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) ?? [];
+        const expanded: string[] = [];
+        for (const cell of cells) {
+          const span = Number(/colspan=["']?(\d+)/i.exec(cell)?.[1] ?? 1);
+          const text = decodeHtml(cell);
+          expanded.push(text);
+          for (let extra = 1; extra < span; extra += 1) expanded.push("");
+        }
+        return expanded;
+      });
+    })
+    .filter((grid) => grid.some((row) => row.some((cell) => cell)));
+}
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&/gi, "&")
+    .replace(/</gi, "<")
+    .replace(/>/gi, ">")
+    .replace(/"/gi, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function pickSubjects(structured: Subject[] | undefined, parsed: Subject[]): Subject[] {
+  if (structured?.length && structured.length >= parsed.length) return structured;
+  if (parsed.length) return parsed;
+  return structured ?? [];
 }
 
 export async function loadDocument(
@@ -229,12 +290,30 @@ export async function loadDocument(
   assertSafeUpload(filename, content);
 
   let text: string;
+  let subjects: Subject[] | undefined;
+  let notes: string[] | undefined;
   if (suffix === ".pdf") {
-    text = await extractTextFromPdf(content);
-  } else if (suffix === ".xlsx" || suffix === ".xls" || suffix === ".csv") {
+    const extracted = await extractPdf(content, filename);
+    text = extracted.text;
+    subjects = extracted.subjects;
+    notes = extracted.notes;
+  } else if (suffix === ".xlsx") {
+    const extracted = await extractSpreadsheet(content, filename);
+    text = extracted.text;
+    subjects = extracted.subjects;
+    notes = extracted.notes;
+  } else if (suffix === ".xls") {
     text = await extractTextFromSpreadsheet(content, suffix);
+  } else if (suffix === ".csv") {
+    const extracted = extractCsv(content, filename);
+    text = extracted.text;
+    subjects = extracted.subjects;
+    notes = extracted.notes;
   } else if (suffix === ".docx") {
-    text = await extractTextFromDocx(content);
+    const extracted = await extractDocx(content, filename);
+    text = extracted.text;
+    subjects = extracted.subjects;
+    notes = extracted.notes;
   } else if (suffix === ".txt" || suffix === ".md" || suffix === "") {
     text = extractTextFromTxt(content);
   } else {
@@ -243,7 +322,7 @@ export async function loadDocument(
     );
   }
 
-  return { filename, sourceDocument, text };
+  return { filename, sourceDocument, text, subjects, notes };
 }
 
 export function extensionOf(filename: string): string {

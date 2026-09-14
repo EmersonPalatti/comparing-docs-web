@@ -4,12 +4,18 @@ import { normalizeSubjects } from "./normalizer.ts";
 export type ReviewRow = {
   name: string;
   workloadHours: number | null;
+  code?: string | null;
+  syllabus?: string | null;
+  semester?: string | null;
 };
 
 export function subjectsToReview(subjects: Subject[]): ReviewRow[] {
   return subjects.map((subject) => ({
     name: subject.name,
     workloadHours: subject.workloadHours,
+    code: subject.code,
+    syllabus: subject.syllabus,
+    semester: subject.semester,
   }));
 }
 
@@ -27,6 +33,7 @@ export function applyReview(
       createSubject({
         name,
         sourceDocument: base?.sourceDocument || fallbackSource,
+        code: base?.code ?? null,
         workloadHours: cleanOptionalInt(row.workloadHours),
         credits: base?.credits ?? null,
         semester: base?.semester ?? null,
