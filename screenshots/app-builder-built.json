@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Equivalência",
+      "hasCanvas": false,
+      "bodyTextLen": 666,
+      "bodyTextHash": "36ff0df174fa2a66333414c432c37791225eeaa0ed9de7dee77704c4183f39a1",
+      "bodyTextPrefix": "ANÁLISE ACADÊMICA Equivalência Compare disciplinas entre dois do",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Equivalência",
+      "hasCanvas": false,
+      "bodyTextLen": 666,
+      "bodyTextHash": "36ff0df174fa2a66333414c432c37791225eeaa0ed9de7dee77704c4183f39a1",
+      "bodyTextPrefix": "ANÁLISE ACADÊMICA Equivalência Compare disciplinas entre dois do",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
